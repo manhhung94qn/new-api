@@ -1,0 +1,38 @@
+services:
+  new-api:
+    image: ghcr.io/manhhung94qn/new-api:${SERVICE_TAG:-latest}
+    container_name: new-api
+    restart: always
+    command: --log-dir /app/logs
+    # ports:
+    #   - "3000:3000"
+    volumes:
+      - ./data:/data
+      - ./logs:/app/logs
+    environment:
+      - SQL_DSN=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+      - REDIS_CONN_STRING=redis://:${REDIS_PASSWORD}@${REDIS_HOST}:6379 
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+      - NODE_NAME=${NODE_NAME:-new-api-node-1}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ftuv-proxy.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.routers.ftuv-proxy.entrypoints=web"
+      - "traefik.http.services.ftuv-proxy.loadbalancer.server.port=3000"
+    networks:
+      - db-network
+      - proxy_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  db-network:
+    external: true
+  proxy_network:
+    name: proxy_network
+    external: true
